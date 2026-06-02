@@ -1,0 +1,48 @@
+GPU Support Changes (fork: li51-AMX/L2O-MIQP-GPU)
+===================================================
+
+Summary
+-------
+This fork adds GPU-accelerated training support for both the energy management
+and robot navigation problems. The core change is switching the CVXPYLayer solver
+from the default CPU-based solver to MOREAU with CUDA backend.
+
+Changes
+-------
+
+energy/miqp.py
+  - CvxpyLayer now uses solver="MOREAU" with solver_args={"device": "cuda"}
+    instead of the default CPU solver.
+  - In solve_miqp(), inputs to the CVXPY layer are passed as .detach().double()
+    instead of .cpu(), keeping the graph on GPU while satisfying the solver's
+    dtype requirement.
+  - MIQP.__init__() accepts a device argument; the neural network is moved to
+    that device at construction time.
+  - All solver outputs are explicitly moved back to the target device after the
+    CVXPY solve.
+
+robot_nav/miqp.py
+  - Same solver change as energy/miqp.py: MOREAU solver with device="cuda".
+  - solve_miqp() passes all CVXPY layer inputs as .detach().double() instead of
+    .cpu().
+  - MIQP.__init__() accepts and stores the device; the neural network is moved
+    to that device.
+  - All solver outputs (u_opt, p_opt, v_opt, s_opt) are moved to the target
+    device after solving.
+  - The original CPU-based layer call is preserved as commented-out code for
+    reference.
+
+requirements-gpu.txt (new file)
+  - Pulls the CUDA 12.6 build of PyTorch from the official PyTorch index.
+  - All other dependencies (neuromancer, cvxpy, cvxpylayers, etc.) are installed
+    from PyPI as usual.
+  - Install with: pip install -r requirements-gpu.txt
+
+Notes
+-----
+- CVXPYLayer itself does not support backpropagation through the GPU solve;
+  the .detach() calls are intentional — gradients flow through the neural
+  network output (y_pred) only.
+- The original CPU code is kept as comments in both miqp.py files so the
+  CPU path can be restored by swapping the layer construction and solve calls.
+- Tested on CUDA 13.2 / driver 595.71.05 with the cu126 PyTorch build.
