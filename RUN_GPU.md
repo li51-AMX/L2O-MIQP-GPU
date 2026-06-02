@@ -9,7 +9,8 @@ MOREAU solver backend.
 
 - NVIDIA GPU with CUDA driver >= 12.6
 - Python 3.8+
-- Gurobi license (for data generation only)
+- Gurobi license (for data generation only — free academic licenses available at
+  https://www.gurobi.com/academia/academic-program-and-licenses/)
 
 ---
 
@@ -22,6 +23,9 @@ source .venv/bin/activate
 
 # Install GPU dependencies (pulls CUDA 12.6 build of PyTorch)
 pip install -r requirements-gpu.txt
+
+# Install the project package (required for src/ imports in train.py)
+pip install -e .
 ```
 
 Verify GPU is visible to PyTorch:
@@ -38,11 +42,18 @@ python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_
 cd energy/
 ```
 
-### 2a. Generate data (skip if `data/data.npz` already exists)
+### 2a. Get the data
 
+The dataset (`data/data.npz`, ~75 MB) is not included in the repo. Choose one option:
+
+**Option A — download the pre-generated data (recommended):**
+Download `data.npz` from [Google Drive](https://drive.google.com/drive/folders/1PT_UossMhQcK9XrkdEZP1OHLV9uGBYkj?usp=drive_link) and place it at `energy/data/data.npz`.
+
+**Option B — generate it yourself** (requires a Gurobi license):
 ```bash
 python generate_data.py
 ```
+Free academic Gurobi licenses: https://www.gurobi.com/academia/academic-program-and-licenses/
 
 ### 2b. Train
 
@@ -88,11 +99,18 @@ python evaluate.py
 cd robot_nav/
 ```
 
-### 3a. Generate data (skip if `data/single.p` already exists)
+### 3a. Get the data
 
+The dataset (`data/single.p`, ~313 MB) is not included in the repo. Choose one option:
+
+**Option A — download the pre-generated data (recommended):**
+Download `single.p` from [Google Drive](https://drive.google.com/drive/folders/1PT_UossMhQcK9XrkdEZP1OHLV9uGBYkj?usp=drive_link) and place it at `robot_nav/data/single.p`.
+
+**Option B — generate it yourself** (requires a Gurobi license):
 ```bash
 python generate_data.py
 ```
+Free academic Gurobi licenses: https://www.gurobi.com/academia/academic-program-and-licenses/
 
 ### 3b. Train
 
