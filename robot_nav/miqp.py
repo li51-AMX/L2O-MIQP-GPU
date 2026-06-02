@@ -29,12 +29,22 @@ class MIQP:
 
         # Reshape the inputs for the CVXPY layer, to match expected dimensions
         # CVXPY layer call, CVXPYLayer is CPU only
+        # train with cpu
+        # solution = self.cvx_layer(
+        #     theta_device[:, 0:2].cpu(),
+        #     theta_device[:, 2:4].cpu(),
+        #     theta_device[:, 4:6].cpu(),
+        #     y_pred.reshape(-1, 3, 1, 20, 4).cpu(),
+        # )
+
+        # train with gpu
         solution = self.cvx_layer(
-            theta_device[:, 0:2].cpu(),
-            theta_device[:, 2:4].cpu(),
-            theta_device[:, 4:6].cpu(),
-            y_pred.reshape(-1, 3, 1, 20, 4).cpu(),
+      theta_device[:, 0:2].detach().double(),
+      theta_device[:, 2:4].detach().double(),
+      theta_device[:, 4:6].detach().double(),
+      y_pred.reshape(-1, 3, 1, 20, 4).detach().double(),
         )
+
 
         u_opt, p_opt, v_opt, s_opt = solution
         u_opt = u_opt.to(device)
@@ -360,11 +370,18 @@ def build_qp_cvxpy_layer(
     #     adaptive_rho=True,
     # )
 
-    layer = CvxpyLayer(problem, 
-                       parameters=parameters, 
-                       variables=layer_variables,
-                    #    solver_args=solver_args_osqp
-                       )
+    # layer = CvxpyLayer(problem, 
+    #                    parameters=parameters, 
+    #                    variables=layer_variables,
+    #                 #    solver_args=solver_args_osqp
+    #                    )
+    layer = CvxpyLayer(problem,
+                     parameters=parameters,
+                     variables=layer_variables,
+                     solver="MOREAU",
+                     solver_args={"device": "cuda"},
+                     )
+
 
     meta = {
         "num_states": num_states,

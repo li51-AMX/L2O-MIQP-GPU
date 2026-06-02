@@ -86,11 +86,23 @@ def build_qp_cvxpy_layer(N: int = 20, slack_penalty: float = 1e3) -> Tuple[Cvxpy
     obj_terms += [slack_penalty * (cp.sum(slack_state) + cp.sum(slack_delta))]
 
     problem = cp.Problem(cp.Minimize(cp.sum(obj_terms)), constraints)
+    # train with GPU
     layer = CvxpyLayer(
-        problem,
-        parameters=[x0_param, disturbance_param, delta_param],
-        variables=[U, X, slack_state, slack_delta],
+       problem,
+       parameters=[x0_param, disturbance_param, delta_param],
+       variables=[U, X, slack_state, slack_delta],
+       solver="MOREAU",
+       solver_args={"device": "cuda"},
+
+    
     )
+    # train with CPU
+    # layer = CvxpyLayer(
+    #   problem,
+    #   parameters=[x0_param, disturbance_param, delta_param],
+    #   variables=[U, X, slack_state, slack_delta],
+    # )
+
 
     meta = EnergyMeta(
         horizon=N,
@@ -131,11 +143,20 @@ class MIQP:
         y_pred = self.predict_y(theta)
         x0, disturbances = self._split_theta(theta_device)
 
+        # train with GPU
         u_opt, x_opt, slack_state, slack_delta = self.cvx_layer(
-            x0.detach().cpu(),
-            disturbances.detach().cpu(),
-            y_pred.detach().cpu(),
+           x0.detach().double(),
+           disturbances.detach().double(),
+           y_pred.detach().double(),
         )
+
+        # train with CPU
+        # u_opt, x_opt, slack_state, slack_delta = self.cvx_layer(
+        # x0.detach().cpu(),
+        # disturbances.detach().cpu(),
+        # y_pred.detach().cpu(),
+        # )
+
 
         u_opt = u_opt.to(self.device)
         x_opt = x_opt.to(self.device)
@@ -192,18 +213,23 @@ def obj_function(u_opt, x_opt, delta, weights=None):
     device = u_opt.device
     horizon = u_opt.shape[1]
 
+    # cast QP solver outputs (float64) to float32 to match the network tensors
+    u_opt = u_opt.float()
+    x_opt = x_opt.float()
+    delta = delta.float()
+
     if weights is None:
-        Q = torch.eye(2, device=device)
-        R = 0.5 * torch.eye(2, device=device)
-        P = torch.eye(2, device=device)
-        rho = torch.tensor(0.1, device=device)
-        ref = torch.tensor([4.2, 1.8], device=device)
+        Q = torch.eye(2, device=device, dtype=torch.float32)
+        R = 0.5 * torch.eye(2, device=device, dtype=torch.float32)
+        P = torch.eye(2, device=device, dtype=torch.float32)
+        rho = torch.tensor(0.1, device=device, dtype=torch.float32)
+        ref = torch.tensor([4.2, 1.8], device=device, dtype=torch.float32)
     else:
-        Q = weights["Q"].to(device)
-        R = weights["R"].to(device)
-        P = weights["P"].to(device)
-        rho = weights["rho"].to(device)
-        ref = weights["ref"].to(device)
+        Q = weights["Q"].to(device=device, dtype=torch.float32)
+        R = weights["R"].to(device=device, dtype=torch.float32)
+        P = weights["P"].to(device=device, dtype=torch.float32)
+        rho = weights["rho"].to(device=device, dtype=torch.float32)
+        ref = weights["ref"].to(device=device, dtype=torch.float32)
 
     state_error = x_opt[:, :horizon, :] - ref.view(1, 1, 2)
     stage_cost = torch.einsum("bhi,ij,bhj->b", state_error, Q, state_error)
